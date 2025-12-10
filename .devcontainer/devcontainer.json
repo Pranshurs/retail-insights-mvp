@@ -1,0 +1,10 @@
+{
+  "name": "Retail Insights Prod",
+  "image": "mcr.microsoft.com/vscode/devcontainers/python:3.11",
+  "features": {
+    "docker-in-docker": "latest"
+  },
+  "postCreateCommand": "pip install -r requirements.txt || true",
+  "forwardPorts": [8080],
+  "remoteUser": "vscode"
+}
