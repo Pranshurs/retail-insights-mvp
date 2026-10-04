@@ -113,5 +113,6 @@ versions fail the tests.
 ## License
 
 Proprietary: © 2025 Pranshu Raj, all rights reserved (see [`LICENSE`](LICENSE)). The source
-is public so it can be read and reviewed. Copying, modifying, distributing or building on
-it requires written permission.
+is public so it can be read and reviewed. You're welcome to use, copy, modify or build on
+it **with my written permission**: email pranshu.rs08@gmail.com and say what you'd like
+to do. Without that permission, no reuse rights are granted.
