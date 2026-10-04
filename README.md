@@ -13,6 +13,17 @@ up to date automatically as sales come in, and it sends deals to customers on Wh
 | **Store-tracker connection** | Import CSV exports from any POS (common column names are recognised, and re-imports never double-count), or run the sync agent next to a MySQL-based POS for automatic updates. |
 | **WhatsApp deals** | Customers with recorded consent get deal messages through Meta's WhatsApp Cloud API. STOP replies unsubscribe them automatically, and nobody gets the same deal twice. |
 
+> **This is the demo edition.** It works as described below: you can run it for a real
+> shop today, single store, single owner. If you want a **fully customised version** for
+> your business, I build those to order. Examples:
+> - integration with your exact POS or billing software;
+> - multiple branches and staff accounts;
+> - your own branding;
+> - richer WhatsApp automation (order updates, reminders, replies in the dashboard);
+> - hosted and maintained for you.
+>
+> Contact **pranshu.rs08@gmail.com** with what you need.
+
 It began in December 2025 as a small CSV-insights API. In October 2026 it was rebuilt
 into this store manager; the history shows both.
 
@@ -132,6 +143,20 @@ broken version fails the tests.
   supplier lead time.
 - **Not tested with a real WhatsApp Business account.** The live WhatsApp sending path is
   tested against Meta's documented request and response format, not a real account.
+
+## Custom version
+
+The demo edition covers one shop, CSV and MySQL POS connections, and template deals on
+WhatsApp. A custom build can add, for example:
+- a direct connection to your POS or accounting software (Tally, Marg, Vyapar and others);
+- several branches, with staff logins and permissions;
+- supplier ordering from restock suggestions;
+- two-way WhatsApp, for customer replies and order or delivery updates;
+- GST-ready reports;
+- your branding;
+- hosting with backups and support.
+
+Write to pranshu.rs08@gmail.com with your shop's setup and what you'd like it to do.
 
 ## License
 
