@@ -1,11 +1,16 @@
-from typing import Dict, List, Optional
+"""Plain-language summary of the computed figures (a template, not an LLM)."""
 
-def render_summary_text(date: Optional[str], total: float, top: Dict[str,int], risks: List[Dict]) -> str:
-    date_str = date or "yesterday"
-    top_list = ", ".join([f"{k} ({v})" for k,v in top.items()]) if top else "no sales"
-    high_risks = [r['product'] for r in risks if r['risk'] == 'high']
-    if not high_risks:
-        risk_text = "No immediate stockout risks detected."
+from __future__ import annotations
+
+
+def render_summary_text(period: str, total: float, top: dict[str, int], risks: list[dict]) -> str:
+    top_list = ", ".join(f"{k} ({v})" for k, v in top.items()) if top else "no sales"
+    high = [r["product"] for r in risks if r["risk"] == "high"]
+    unknown = [r["product"] for r in risks if r["risk"] == "unknown"]
+    if high:
+        risk_text = "Likely to run out within a week: " + ", ".join(high) + "."
+    elif unknown and len(unknown) == len(risks):
+        risk_text = "Stock-out risk not assessed (no stock levels provided)."
     else:
-        risk_text = "Items at risk: " + ", ".join(high_risks)
-    return f"{date_str}: total revenue ₹{total:.2f}. Top sellers: {top_list}. {risk_text}"
+        risk_text = "No stock-outs expected within a week."
+    return f"{period}: total revenue ₹{total:.2f}. Top sellers: {top_list}. {risk_text}"

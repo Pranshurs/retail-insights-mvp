@@ -1,179 +1,118 @@
-# Retail Insights MVP
+# Retail Insights
 
-Retail Insights MVP is a **FastAPI backend** that allows shop owners to generate sales insights from their CSV sales data. It supports automatic POS data syncing, calculates total revenue, top-selling products, and inventory risks, and generates human-readable summaries.
+[![tests](https://github.com/Pranshurs/retail-insights-mvp/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranshurs/retail-insights-mvp/actions/workflows/ci.yml)
 
----
+A small FastAPI service that turns a shop's sales records into a daily summary: revenue,
+top sellers, and which products are likely to run out. A companion agent pushes new sales
+from a shop's MySQL point-of-sale database to the API.
 
-## Features
+It began in December 2025 as a two-day MVP. In October 2026 it was reviewed before being
+made public, and these were fixed:
+- **Exposed API key.** A debug endpoint returned the key to anyone.
+- **Unauthenticated POS sync.**
+- **Arbitrary file reads.** The service read any `csv_path` it was given.
+- **Wrong date reporting.** Reports for "a date" summed every date.
+- **Invented stock levels.** Stock-out risk was computed from an assumed 20 units per
+  product.
+- **Repository clutter.** A committed virtualenv (12,500 files).
 
-- Generate insights from CSV sales data
-- Calculate total revenue and top-selling products
-- Identify products at inventory risk
-- Sync POS records from external systems
-- API key-based authentication for security
-- Ready for cloud deployment (GCP, AWS, etc.)
+The original commits are kept in the history.
 
----
+## What it computes
 
-## Project Structure
+For `POST /generate_insights` with `{"source": {"type": "csv", "csv_path": "sample_sales.csv"}, "date": "2025-01-03"}`:
 
-/app
-├── main.py          # FastAPI app and endpoints
-├── connector.py     # CSV loader
-├── insights.py      # Insight calculations
-└── prompts.py       # Text summary generator
-/config
-└── .env.example     # Environment variables template
-/samples
-└── sample_sales.csv # Sample CSV file
-/tests
-├── test_connector.py
-└── test_insights.py
-requirements.txt
-Dockerfile
+```
+2025-01-03: total revenue ₹474.00. Top sellers: Eggs (14), Milk (6), Butter (2).
+Likely to run out within a week: Eggs.
+```
 
----
+How each figure is calculated:
+- **Revenue and top sellers** cover the requested day, or all the data if you give no date.
+- **Stock-out risk** uses the stock levels you pass in, for example
+  `"stock": {"Eggs": 20, "Milk": 40}`. It compares them with average daily demand over the
+  last `window_days` (default 7), counting days without sales as zero demand.
+  - A product without a stock level is reported as `unknown`; nothing is assumed.
+  - A product is `high` risk if it would run out within 7 days.
+- **The summary text** is a fixed template filled with these numbers. No LLM is involved.
 
-## Prerequisites
-
-- Python 3.10+
-- pip
-- Git
-- (Optional) Docker if deploying containerized
-- (Optional) GCP/AWS account for API deployment
-
----
-
-## Setup
-
-1. Clone the repository:
+## Run it
 
 ```bash
-git clone https://github.com/Pranshurs/retail-insights-mvp.git
-cd retail-insights-mvp
-
-	2.	Create a virtual environment and activate it:
-
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-.venv\Scripts\activate     # Windows
-
-	3.	Install dependencies:
-
 pip install -r requirements.txt
+cp config/.env.example config/.env      # set API_KEY to a long random string
+uvicorn app.main:app --port 8000
+```
 
-	4.	Copy the environment file and set your API key:
+```bash
+curl -X POST localhost:8000/generate_insights -H "x-api-key: $API_KEY" -H "content-type: application/json" \
+  -d '{"source": {"type": "csv", "csv_path": "sample_sales.csv"}, "date": "2025-01-03", "stock": {"Eggs": 20, "Milk": 40}}'
+```
 
-cp config/.env.example config/.env
+To run it with Docker:
 
-Edit config/.env:
+```bash
+docker build -t retail-insights . && docker run -e API_KEY=... -p 8080:8080 retail-insights
+```
 
-API_KEY=changeme123
+The container runs as a non-root user.
 
+## Endpoints
 
-⸻
+| Endpoint | Auth | What it does |
+|---|---|---|
+| `GET /health` | none | liveness |
+| `POST /generate_insights` | `x-api-key` | figures for one day or all days, from a CSV inside `DATA_DIR` (columns: `date, product, quantity, price`) |
+| `POST /sync-pos` | `x-api-key` | stores a batch of POS records (validated: positive quantity, non-negative price, real timestamp; at most 10,000 per request) |
 
-Running the Server
+**Security model:**
+- One shared API key, compared in constant time.
+- The service won't start without a key.
+- `csv_path` is resolved inside `DATA_DIR`, and anything outside it is refused.
+- Synced batches are written to `POS_SYNC_DIR`; the response doesn't reveal server paths.
 
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+## POS sync agent
 
-	•	Open http://localhost:8000￼ to check if the API is running.
-	•	Health check: http://localhost:8000/health￼
-	•	Debug API key: http://localhost:8000/debug_api_key￼
+`pos_sync_agent.py` runs next to the shop's MySQL POS database:
 
-⸻
+```bash
+pip install -r requirements-agent.txt
+POS_DB_HOST=... POS_DB_USER=... POS_DB_PASSWORD=... POS_DB_NAME=... \
+API_URL=https://your-host/sync-pos API_KEY=... python pos_sync_agent.py
+```
 
-API Endpoints
+Each pass sends rows newer than the last synced timestamp, oldest first. That timestamp
+(the watermark) is stored in a file and only moves forward after the API accepts the
+batch, so a failed upload is retried rather than lost.
 
-1. Generate Insights
+## Tests
 
-POST /generate_insights
+```bash
+pip install -r requirements-dev.txt && pytest -q
+```
 
-Headers:
+The 16 tests cover:
+- authentication on both data endpoints, and that the key is never exposed;
+- path-traversal attempts;
+- date filtering (₹474 for 3 January vs ₹1,911 overall);
+- stock-out maths, including days without sales;
+- POS record validation;
+- the agent's watermark and retry behaviour.
 
-Content-Type: application/json
-x-api-key: <YOUR_API_KEY>
+Each of those rules was checked by breaking it on purpose: all 10 deliberately broken
+versions fail the tests.
 
-Body (JSON):
+## Limitations
 
-{
-    "source": {
-        "type": "csv",
-        "csv_path": "samples/sample_sales.csv"
-    },
-    "date": "2025-01-03"
-}
+- CSV input only; synced POS batches are stored as CSV files, not in a database.
+- A single shared API key. There are no per-shop accounts.
+- Revenue is shown in ₹ regardless of the data's currency.
+- It hasn't been deployed. The original Cloud Run workflow never ran successfully and was
+  removed.
 
-Response:
+## License
 
-{
-    "summary_raw": {
-        "total": 1911.0,
-        "top": {
-            "Eggs": 36,
-            "Milk": 24,
-            "Bread": 9,
-            "Butter": 5
-        },
-        "inventory_risks": [
-            {"product":"Bread", "avg_daily_demand":4.5, "stock_assumed":20, "days_to_stockout":4.44, "risk":"high"}
-        ]
-    },
-    "summary_text": "2025-01-03: total revenue ₹1911.00. Top sellers: Eggs (36), Milk (24), Bread (9), Butter (5). Items at risk: Bread, Eggs, Milk"
-}
-
-
-⸻
-
-2. POS Sync
-
-POST /sync-pos
-
-Headers:
-
-Content-Type: application/json
-
-Body (JSON):
-
-[
-    {
-        "bill_id": "B001",
-        "item_name": "Eggs",
-        "quantity": 12,
-        "price": 60.0,
-        "timestamp": "2025-01-03T10:30:00"
-    }
-]
-
-Response:
-
-{
-    "status": "success",
-    "stored_file": "data/pos_sync/sync_1700000000.0.csv",
-    "count": 1
-}
-
-
-⸻
-
-Development Notes
-	•	The backend currently works with CSV files only. In the future, it can be extended to fetch data directly from shop owners’ databases (optional).
-	•	Data storage: Currently, synced POS data is stored locally in data/pos_sync/. For production, you can connect it to a proper database (PostgreSQL/MySQL).
-	•	API security: All critical endpoints require the x-api-key header.
-
-⸻
-
-Deployment
-	•	Deploy as an API service on GCP Cloud Run / AWS Lambda / EC2.
-	•	You can also containerize the app using Docker:
-
-docker build -t retail-insights-mvp .
-docker run -p 8000:8000 retail-insights-mvp
-
-
-⸻
-
-License
-
-MIT License. See LICENSE￼.
-
+Proprietary: © 2025 Pranshu Raj, all rights reserved (see [`LICENSE`](LICENSE)). The source
+is public so it can be read and reviewed. You're welcome to use, copy, modify or build on
+it **with my written permission**: email pranshu.rs08@gmail.com and say what you'd like
+to do. Without that permission, no reuse rights are granted.

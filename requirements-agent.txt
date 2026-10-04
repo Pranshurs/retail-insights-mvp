@@ -1,0 +1,3 @@
+# Only for pos_sync_agent.py (runs next to the shop's MySQL POS database)
+pymysql>=1.1
+requests>=2.31

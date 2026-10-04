@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+# secrets: commit config/.env.example only
+config/.env
+.env
+# runtime data written by /sync-pos and the agent
+data/
+.pos_sync_watermark
+.DS_Store
