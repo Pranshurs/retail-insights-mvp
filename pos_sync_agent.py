@@ -5,6 +5,10 @@ Runs next to the POS database (e.g. on the shop's PC) and polls every SYNC_INTER
     POS_DB_HOST, POS_DB_USER, POS_DB_PASSWORD, POS_DB_NAME   database access
     API_URL                                                  e.g. https://insights.example.com/sync-pos
     API_KEY                                                  sent as x-api-key
+    POS_TABLE, POS_COL_BILL, POS_COL_ITEM, POS_COL_QTY, POS_COL_PRICE, POS_COL_TIME
+                                                             your POS's table/column names
+                                                             (defaults: sales, bill_id, item_name,
+                                                             quantity, price, timestamp)
     WATERMARK_FILE                                           default .pos_sync_watermark
     SYNC_INTERVAL_S                                          default 600
 
@@ -18,19 +22,28 @@ deduplicate them.
 from __future__ import annotations
 
 import os
+import re
 import time
 from datetime import datetime
 from pathlib import Path
 
 import requests
 
-QUERY = """
-    SELECT bill_id, item_name, quantity, price, timestamp
-    FROM sales
-    WHERE timestamp > %s
-    ORDER BY timestamp
-    LIMIT 10000
-"""
+_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+DEFAULT_COLUMNS = {"POS_TABLE": "sales", "POS_COL_BILL": "bill_id", "POS_COL_ITEM": "item_name",
+                   "POS_COL_QTY": "quantity", "POS_COL_PRICE": "price", "POS_COL_TIME": "timestamp"}
+
+
+def build_query(env=os.environ) -> str:
+    """SELECT for the configured table/columns. Names are checked as plain identifiers
+    (they can't be bound as SQL parameters), so configuration can't inject SQL."""
+    n = {k: env.get(k, v) for k, v in DEFAULT_COLUMNS.items()}
+    bad = [f"{k}={v!r}" for k, v in n.items() if not _IDENT.match(v)]
+    if bad:
+        raise ValueError(f"invalid table/column names: {bad}")
+    t = n["POS_COL_TIME"]
+    return (f"SELECT `{n['POS_COL_BILL']}`, `{n['POS_COL_ITEM']}`, `{n['POS_COL_QTY']}`, `{n['POS_COL_PRICE']}`, `{t}` "
+            f"FROM `{n['POS_TABLE']}` WHERE `{t}` > %s ORDER BY `{t}` LIMIT 10000")
 EPOCH = "1970-01-01 00:00:00"
 
 
@@ -64,13 +77,15 @@ def sync_once(fetch_rows, post, watermark_file: Path) -> int:
 def _mysql_fetcher():
     import pymysql  # only needed by the agent: pip install -r requirements-agent.txt
 
+    query = build_query()
+
     def fetch(since: str):
         conn = pymysql.connect(host=os.environ["POS_DB_HOST"], user=os.environ["POS_DB_USER"],
                                password=os.environ["POS_DB_PASSWORD"], database=os.environ["POS_DB_NAME"],
                                connect_timeout=10)
         try:
             with conn.cursor() as cur:
-                cur.execute(QUERY, (since,))
+                cur.execute(query, (since,))
                 return cur.fetchall()
         finally:
             conn.close()

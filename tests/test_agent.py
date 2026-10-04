@@ -34,3 +34,10 @@ def test_failed_upload_keeps_the_watermark_so_rows_are_retried(tmp_path):
         agent.sync_once(lambda since: ROWS, failing, wm)
     assert not wm.exists()
     assert agent.sync_once(lambda since: ROWS, lambda p: None, wm) == 2
+
+
+def test_column_mapping_and_injection_guard():
+    q = agent.build_query({"POS_TABLE": "bills", "POS_COL_ITEM": "item_desc"})
+    assert "FROM `bills`" in q and "`item_desc`" in q and q.endswith("LIMIT 10000")
+    with pytest.raises(ValueError, match="invalid"):
+        agent.build_query({"POS_TABLE": "sales; DROP TABLE sales"})
