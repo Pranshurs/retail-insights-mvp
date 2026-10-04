@@ -1,0 +1,13 @@
+# docker compose up -d   then open http://localhost:8080
+services:
+  store:
+    build: .
+    ports: ["8080:8080"]
+    env_file:
+      - path: config/.env
+        required: false
+    volumes:
+      - store-data:/app/data     # the SQLite database survives restarts and upgrades
+    restart: unless-stopped
+volumes:
+  store-data:
