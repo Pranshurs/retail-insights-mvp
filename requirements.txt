@@ -1,8 +1,4 @@
-fastapi
-uvicorn[standard]
-pandas
-sqlalchemy
-python-dotenv
-scikit-learn
-requests
-python-multipart
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pandas>=2.0
+python-dotenv>=1.0
