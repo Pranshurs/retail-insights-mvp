@@ -109,3 +109,9 @@ versions fail the tests.
 - Revenue is shown in ₹ regardless of the data's currency.
 - It hasn't been deployed. The original Cloud Run workflow never ran successfully and was
   removed.
+
+## License
+
+Proprietary: © 2025 Pranshu Raj, all rights reserved (see [`LICENSE`](LICENSE)). The source
+is public so it can be read and reviewed. Copying, modifying, distributing or building on
+it requires written permission.
