@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block body %}
+<h1>Stock</h1>
+<div class="card"><h2>Add or set a product</h2>
+<form class="row" method="post" action="/stock/add"><input type="hidden" name="csrf" value="{{ csrf }}">
+<input name="name" placeholder="Product" required> <input name="price" type="number" step="0.01" min="0" placeholder="Price ₹">
+<input name="count" type="number" step="0.01" min="0" placeholder="Stock now" required>
+<input name="reorder_level" type="number" step="0.01" min="0" placeholder="Reorder at"> <button>Save</button></form></div>
+<div class="card"><table>
+<tr><th>Product</th><th>Stock</th><th class="hide-sm">Sells/day</th><th class="hide-sm">Days left</th><th>Status</th><th>Update</th></tr>
+{% for r in report %}<tr>
+<td>{{ r.product.name }}<div class="mut">₹{{ r.product.price }} · reorder at {{ r.product.reorder_level|round(1) }}</div></td>
+<td>{{ r.product.stock|round(1) }}</td><td class="hide-sm">{{ r.demand }}</td><td class="hide-sm">{{ r.days_left if r.days_left is not none else '—' }}</td>
+<td><span class="tag {{ r.status|replace(' ','-') }}">{{ r.status }}</span>{% if r.suggested_reorder %}<div class="mut">order ~{{ r.suggested_reorder|int }}</div>{% endif %}</td>
+<td><form class="row" method="post" action="/stock/update"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="product_id" value="{{ r.product.id }}">
+<select name="action"><option value="restock">+ received</option><option value="count">= counted</option><option value="reorder_level">reorder at</option></select>
+<input name="amount" type="number" step="0.01" min="0" required style="width:80px"><button class="ghost">OK</button></form></td>
+</tr>{% else %}<tr><td colspan="6" class="mut">No products yet. Add one above or <a href="/import">import your stock list</a>.</td></tr>{% endfor %}
+</table>
+<p class="mut">Sales reduce stock automatically. "Days left" uses average daily sales over the last 7 days. "Not counted" means the product came from a sale but you haven't entered its stock yet.</p></div>
+{% endblock %}

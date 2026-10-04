@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block body %}
+<h1>Import from your store tracker</h1>
+{% if result %}<div class="card"><h2>{{ result.file }} ({{ result.kind }})</h2>
+<p>Added <b>{{ result.added }}</b>{% if result.kind == 'sales' %}, skipped <b>{{ result.duplicates }}</b> already imported{% endif %}.</p>
+{% if result.errors %}<p class="mut">Problems:</p><ul>{% for e in result.errors %}<li class="mut">{{ e }}</li>{% endfor %}</ul>{% if result.more_errors %}<p class="mut">…and {{ result.more_errors }} more.</p>{% endif %}{% endif %}</div>{% endif %}
+<div class="grid">
+<div class="card"><h2>Sales export (CSV)</h2>
+<p class="mut">Needs columns for date, product, quantity and price (a bill number is optional). Common POS column names are recognised. Importing the same file again never counts a sale twice. Sales reduce stock.</p>
+<form method="post" action="/import/sales" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{ csrf }}">
+<input type="file" name="file" accept=".csv,text/csv" required> <button>Import sales</button></form></div>
+<div class="card"><h2>Stock list (CSV)</h2>
+<p class="mut">Columns: product and stock; price and reorder level are optional. Sets the counted stock for each product.</p>
+<form method="post" action="/import/stock" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{ csrf }}">
+<input type="file" name="file" accept=".csv,text/csv" required> <button>Import stock</button></form></div>
+</div>
+<div class="card mut">Automatic sync from a MySQL-based POS: see Settings.</div>
+{% endblock %}

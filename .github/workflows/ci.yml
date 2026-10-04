@@ -14,6 +14,19 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.12"]
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpw
+          MYSQL_DATABASE: posdb
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -prootpw" --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_PASSWORD: rootpw
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -23,5 +36,5 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Lint
         run: ruff check --select E,F,W,B,I --ignore E501,B008 app tests pos_sync_agent.py
-      - name: Tests
-        run: pytest -q
+      - name: Tests (unit, dashboard, WhatsApp, and the POS agent against real MySQL)
+        run: pytest -q -rs

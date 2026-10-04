@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block body %}
+<h1>Customers</h1>
+<div class="card"><h2>Add a customer</h2>
+<form class="row" method="post" action="/customers/add"><input type="hidden" name="csrf" value="{{ csrf }}">
+<input name="name" placeholder="Name" required> <input name="phone" placeholder="Phone (10 digits)" required>
+<input name="consent_source" placeholder="How they agreed (e.g. at counter)" required>
+<label><input type="checkbox" name="consent" value="yes" required> They agreed to get deals on WhatsApp</label>
+<button>Add</button></form>
+<p class="mut">WhatsApp only allows messages to people who opted in. Customers can reply STOP at any time.</p></div>
+<div class="card"><table><tr><th>Name</th><th>Phone</th><th>Status</th><th></th></tr>
+{% for c in customers %}<tr><td>{{ c.name }}</td><td>{{ c.phone }}</td>
+<td>{% if c.can_message %}<span class="tag ok">subscribed</span><div class="mut">{{ c.consent_source }}</div>{% else %}<span class="tag">opted out</span>{% endif %}</td>
+<td>{% if c.can_message %}<form method="post" action="/customers/{{ c.id }}/opt-out"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Unsubscribe</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="4" class="mut">No customers yet.</td></tr>{% endfor %}</table></div>
+{% endblock %}
