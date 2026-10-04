@@ -1,89 +1,105 @@
-# Retail Insights
+# Retail Store Manager
 
 [![tests](https://github.com/Pranshurs/retail-insights-mvp/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranshurs/retail-insights-mvp/actions/workflows/ci.yml)
 
-A small FastAPI service that turns a shop's sales records into a daily summary: revenue,
-top sellers, and which products are likely to run out. A companion agent pushes new sales
-from a shop's MySQL point-of-sale database to the API.
+A store manager for small shops, built to plug into the till they already use. It gives
+the owner a dashboard of today's sales, best sellers and what to restock. It keeps stock
+up to date automatically as sales come in, and it sends deals to customers on WhatsApp.
 
-It began in December 2025 as a two-day MVP. In October 2026 it was reviewed before being
-made public, and these were fixed:
-- **Exposed API key.** A debug endpoint returned the key to anyone.
-- **Unauthenticated POS sync.**
-- **Arbitrary file reads.** The service read any `csv_path` it was given.
-- **Wrong date reporting.** Reports for "a date" summed every date.
-- **Invented stock levels.** Stock-out risk was computed from an assumed 20 units per
-  product.
-- **Repository clutter.** A committed virtualenv (12,500 files).
+| Part | What it does |
+|---|---|
+| **Owner dashboard** | Sales today and over 7 days, best sellers, restock alerts with suggested order quantities, customers and deals. Password-protected and phone-friendly. |
+| **Stock** | Every sale reduces stock. Restocks, counts and adjustments are recorded as movements, so stock always matches its history. Shows "days left" from recent demand. |
+| **Store-tracker connection** | Import CSV exports from any POS (common column names are recognised, and re-imports never double-count), or run the sync agent next to a MySQL-based POS for automatic updates. |
+| **WhatsApp deals** | Customers with recorded consent get deal messages through Meta's WhatsApp Cloud API. STOP replies unsubscribe them automatically, and nobody gets the same deal twice. |
 
-The original commits are kept in the history.
+It began in December 2025 as a small CSV-insights API. In October 2026 it was rebuilt
+into this store manager; the history shows both.
 
-## What it computes
+## Start it
 
-For `POST /generate_insights` with `{"source": {"type": "csv", "csv_path": "sample_sales.csv"}, "date": "2025-01-03"}`:
-
-```
-2025-01-03: total revenue ₹474.00. Top sellers: Eggs (14), Milk (6), Butter (2).
-Likely to run out within a week: Eggs.
+```bash
+docker compose up -d          # then open http://localhost:8080
 ```
 
-How each figure is calculated:
-- **Revenue and top sellers** cover the requested day, or all the data if you give no date.
-- **Stock-out risk** uses the stock levels you pass in, for example
-  `"stock": {"Eggs": 20, "Milk": 40}`. It compares them with average daily demand over the
-  last `window_days` (default 7), counting days without sales as zero demand.
-  - A product without a stock level is reported as `unknown`; nothing is assumed.
-  - A product is `high` risk if it would run out within 7 days.
-- **The summary text** is a fixed template filled with these numbers. No LLM is involved.
-
-## Run it
+Or, without Docker:
 
 ```bash
 pip install -r requirements.txt
-cp config/.env.example config/.env      # set API_KEY to a long random string
-uvicorn app.main:app --port 8000
+uvicorn app.main:app --port 8080
 ```
 
-```bash
-curl -X POST localhost:8000/generate_insights -H "x-api-key: $API_KEY" -H "content-type: application/json" \
-  -d '{"source": {"type": "csv", "csv_path": "sample_sales.csv"}, "date": "2025-01-03", "stock": {"Eggs": 20, "Milk": 40}}'
-```
+On first visit you set the owner password; nothing else is required.
+- **Demo data:** to try it with sample data first, run `python -m app.demo` (or
+  `docker compose exec store python -m app.demo`). It adds sample products, two weeks of
+  sales and three demo customers with fake numbers.
+- **Where data lives:** everything is stored in one SQLite file (`data/store.db`, a Docker
+  volume under Compose).
+- **Settings:** configuration goes in `config/.env` (copy `config/.env.example`). All of it
+  is optional for a local start.
 
-To run it with Docker:
+## Connect your store tracker
 
-```bash
-docker build -t retail-insights . && docker run -e API_KEY=... -p 8080:8080 retail-insights
-```
+**CSV (works with almost any POS).** On the Import page, upload:
+- a sales export with date, product, quantity and price (a bill number is optional);
+- a stock list with product and stock (price and reorder level are optional).
 
-The container runs as a non-root user.
+Column names like `Item`, `Qty`, `Rate`, `Bill No`, `Closing Stock` and `MRP` are
+recognised. Add your own with `COLUMN_MAP`. Importing overlapping exports never counts a
+sale twice.
 
-## Endpoints
-
-| Endpoint | Auth | What it does |
-|---|---|---|
-| `GET /health` | none | liveness |
-| `POST /generate_insights` | `x-api-key` | figures for one day or all days, from a CSV inside `DATA_DIR` (columns: `date, product, quantity, price`) |
-| `POST /sync-pos` | `x-api-key` | stores a batch of POS records (validated: positive quantity, non-negative price, real timestamp; at most 10,000 per request) |
-
-**Security model:**
-- One shared API key, compared in constant time.
-- The service won't start without a key.
-- `csv_path` is resolved inside `DATA_DIR`, and anything outside it is refused.
-- Synced batches are written to `POS_SYNC_DIR`; the response doesn't reveal server paths.
-
-## POS sync agent
-
-`pos_sync_agent.py` runs next to the shop's MySQL POS database:
+**Automatic sync (MySQL-based POS).** Run the agent on the shop PC that has the POS
+database:
 
 ```bash
 pip install -r requirements-agent.txt
-POS_DB_HOST=... POS_DB_USER=... POS_DB_PASSWORD=... POS_DB_NAME=... \
-API_URL=https://your-host/sync-pos API_KEY=... python pos_sync_agent.py
+POS_DB_HOST=localhost POS_DB_USER=... POS_DB_PASSWORD=... POS_DB_NAME=... \
+POS_TABLE=bills POS_COL_BILL=invoice_no POS_COL_ITEM=item_desc POS_COL_QTY=qty \
+POS_COL_PRICE=rate POS_COL_TIME=billed_at \
+API_URL=https://your-server/sync-pos API_KEY=... python pos_sync_agent.py
 ```
 
-Each pass sends rows newer than the last synced timestamp, oldest first. That timestamp
-(the watermark) is stored in a file and only moves forward after the API accepts the
-batch, so a failed upload is retried rather than lost.
+The agent:
+- polls every 10 minutes and sends only rows newer than the last confirmed sync;
+- retries after a failure without losing or duplicating sales;
+- validates table and column names before using them in SQL.
+
+It's tested against a real MySQL 8.4 database in CI.
+
+## WhatsApp deals
+
+Until you add credentials, deals use a **mock sender**. The whole flow works, but nothing
+is sent. To send for real:
+1. **Set up the account.** Create a WhatsApp Business account in Meta's WhatsApp Manager,
+   and note the phone number ID and an access token.
+2. **Create the deal template.** Make a message template whose body has three variables,
+   e.g. *"Hi {{1}}! Today at our store: {{2}}. {{3}} Reply STOP to unsubscribe."* Meta must
+   approve it. WhatsApp only lets businesses start conversations with approved templates.
+3. **Configure the app.** Set `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID` and restart.
+   Use the template's name when you create a deal.
+4. **Turn on automatic opt-outs.** Point the app's webhook at `https://your-server/webhooks/whatsapp`,
+   and set `WHATSAPP_VERIFY_TOKEN` and `WHATSAPP_APP_SECRET`. Incoming requests are checked
+   against Meta's `X-Hub-Signature-256` signature, and a STOP reply unsubscribes the
+   customer.
+
+**Consent.** Add only customers who agreed to receive messages. WhatsApp's rules and
+India's DPDP Act both require it. The app makes you record how each customer agreed, and
+never messages anyone who opted out.
+
+## Security
+
+- **Dashboard login:**
+  - one owner password, stored as a salted scrypt hash;
+  - signed sessions;
+  - a CSRF token on every form;
+  - a limit on failed logins.
+- **Machine endpoints** (`/sync-pos`, `/api/stock`, `/generate_insights`): need
+  `API_KEY`, compared in constant time. They're switched off if no key is set.
+- **WhatsApp webhook:** a signature check and a verify token.
+- **Uploads:** capped at 5 MB, with row-level validation.
+- **Docker:** runs as a non-root user.
+
+For anything beyond a local network, put it behind HTTPS (e.g. Caddy or nginx).
 
 ## Tests
 
@@ -91,24 +107,31 @@ batch, so a failed upload is retried rather than lost.
 pip install -r requirements-dev.txt && pytest -q
 ```
 
-The 16 tests cover:
-- authentication on both data endpoints, and that the key is never exposed;
-- path-traversal attempts;
-- date filtering (₹474 for 3 January vs ₹1,911 overall);
-- stock-out maths, including days without sales;
-- POS record validation;
-- the agent's watermark and retry behaviour.
+There are 32 tests, covering:
+- setup, login, throttling and CSRF;
+- stock movements adding up to the stock figure;
+- CSV import with deduplication and different column names;
+- consent rules;
+- deals: at-most-once delivery, retrying failures, and never resending a message that may
+  have gone out;
+- the exact WhatsApp Cloud API request;
+- webhook signatures and STOP handling;
+- the POS agent against a real MySQL with custom column names.
 
-Each of those rules was checked by breaking it on purpose: all 10 deliberately broken
-versions fail the tests.
+Each of 16 safety and correctness rules was checked by breaking it on purpose, and every
+broken version fails the tests.
 
 ## Limitations
 
-- CSV input only; synced POS batches are stored as CSV files, not in a database.
-- A single shared API key. There are no per-shop accounts.
-- Revenue is shown in ₹ regardless of the data's currency.
-- It hasn't been deployed. The original Cloud Run workflow never ran successfully and was
-  removed.
+- **One shop and one owner account.** There are no staff roles and no multiple branches.
+- **POS connection:** direct sync supports MySQL. Other POS systems connect through CSV
+  export.
+- **WhatsApp:** only template messages are sent. Replies other than STOP aren't shown in
+  the dashboard.
+- **Restock suggestions:** based on the last 7 days of sales. There's no seasonality or
+  supplier lead time.
+- **Not tested with a real WhatsApp Business account.** The live WhatsApp sending path is
+  tested against Meta's documented request and response format, not a real account.
 
 ## License
 
