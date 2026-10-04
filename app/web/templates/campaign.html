@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block body %}
+<h1>{{ c.name }}</h1>
+<div class="card">
+<p>Offer: <b>{{ c.offer }}</b>{% if c.product %} on <b>{{ c.product.name }}</b>{% endif %} · template <code>{{ c.template_name }}</code> ({{ c.language }})</p>
+{% if preview %}<p class="mut">Template variables for the first customer: {{ preview|join(' · ') }}</p>{% endif %}
+<form method="post" action="/campaigns/{{ c.id }}/send"><input type="hidden" name="csrf" value="{{ csrf }}">
+<button>Send to {{ recipients }} subscribed customer(s)</button></form>
+<p class="mut">Each customer gets this deal at most once; sending again only retries failures. Using: {{ sender_name }}.</p></div>
+<div class="card"><table><tr><th>Customer</th><th>Status</th><th class="hide-sm">Detail</th></tr>
+{% for m, cust in messages %}<tr><td>{{ cust.name }} <span class="mut">{{ cust.phone }}</span></td><td><span class="tag {{ m.status }}">{{ m.status }}</span></td><td class="hide-sm mut">{{ m.error or m.provider_id }}</td></tr>
+{% else %}<tr><td colspan="3" class="mut">Not sent yet.</td></tr>{% endfor %}</table></div>
+{% endblock %}

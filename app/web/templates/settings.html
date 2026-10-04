@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block body %}
+<h1>Settings</h1>
+<div class="card"><h2>WhatsApp</h2>
+<p>Sending: <b>{{ sender_name }}</b></p>
+<p class="mut">To send real messages, set <code>WHATSAPP_TOKEN</code> and <code>WHATSAPP_PHONE_NUMBER_ID</code> from your Meta WhatsApp Business account and restart. Deals use a pre-approved template whose body has three variables: customer name, product, offer.</p>
+<p>Opt-out webhook: <b>{{ 'configured' if webhook_ready else 'not configured' }}</b></p>
+<p class="mut">Point your app's webhook to <code>/webhooks/whatsapp</code> and set <code>WHATSAPP_VERIFY_TOKEN</code> and <code>WHATSAPP_APP_SECRET</code> so customers who reply STOP are unsubscribed automatically.</p></div>
+<div class="card"><h2>POS sync</h2>
+<p>API key: <b>{{ 'set' if api_key_set else 'not set' }}</b></p>
+<p class="mut">Run <code>pos_sync_agent.py</code> next to a MySQL-based POS with <code>API_URL=…/sync-pos</code> and the same <code>API_KEY</code>. Synced sales appear here and reduce stock. Table and column names are configurable (see the README).</p></div>
+{% endblock %}

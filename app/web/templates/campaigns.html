@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block body %}
+<h1>Deals on WhatsApp</h1>
+<div class="card"><h2>New deal</h2>
+<form method="post" action="/campaigns/new"><input type="hidden" name="csrf" value="{{ csrf }}">
+<p class="row"><input name="name" placeholder="Name (e.g. Diwali milk offer)" required>
+<select name="product_id"><option value="">Any / store-wide</option>{% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></p>
+<p><input name="offer" placeholder="Offer text, e.g. 10% off today only" required style="width:100%"></p>
+<p class="row"><input name="template_name" placeholder="Approved WhatsApp template name" required> <input name="language" value="en" style="width:70px"> <button>Create</button></p>
+</form>
+<p class="mut">Will go to {{ eligible }} subscribed customer(s). Sending uses: <b>{{ sender_name }}</b>.</p></div>
+<div class="card"><table><tr><th>Deal</th><th>Offer</th><th>Sent</th><th>Failed</th></tr>
+{% for c in campaigns %}<tr><td><a href="/campaigns/{{ c.id }}">{{ c.name }}</a><div class="mut">{{ c.created_at.strftime('%d %b %Y') }}</div></td><td>{{ c.offer }}</td>
+<td>{{ stats[c.id].sent }}</td><td>{{ stats[c.id].failed }}</td></tr>{% else %}<tr><td colspan="4" class="mut">No deals yet.</td></tr>{% endfor %}</table></div>
+{% endblock %}

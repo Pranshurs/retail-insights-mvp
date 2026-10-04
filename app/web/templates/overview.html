@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% block body %}
+<h1>Overview</h1>
+<div class="grid">
+  <div class="card"><div class="mut">Today's sales</div><div class="big">₹{{ "%.0f"|format(days[-1][1]) }}</div></div>
+  <div class="card"><div class="mut">Last 7 days</div><div class="big">₹{{ "%.0f"|format(days|sum(attribute=1)) }}</div></div>
+  <div class="card"><div class="mut">Items to restock</div><div class="big">{{ alerts|length }}</div></div>
+  <div class="card"><div class="mut">Customers on WhatsApp</div><div class="big">{{ customers }}</div></div>
+</div>
+<div class="card"><h2>Sales, last 7 days</h2>
+  <div class="bars">{% for d, t in days %}<div><span style="height:{{ (t / peak * 90)|round|int }}px" title="₹{{ '%.0f'|format(t) }}"></span>{{ d.strftime('%a') }}</div>{% endfor %}</div>
+  <p class="mut">{% if last_sale %}Latest sale recorded: {{ last_sale.strftime('%d %b %Y %H:%M') }}{% else %}No sales yet. <a href="/import">Import a sales file</a> or connect your POS (Settings).{% endif %}</p>
+</div>
+<div class="grid">
+<div class="card"><h2>Restock soon</h2>
+{% if alerts %}<table>{% for r in alerts %}<tr><td>{{ r.product.name }}</td><td><span class="tag {{ r.status|replace(' ','-') }}">{{ r.status }}</span></td><td>{{ r.product.stock|round(1) }} left</td><td>order ~{{ r.suggested_reorder|int }}</td></tr>{% endfor %}</table>
+{% else %}<p class="mut">Nothing needs restocking.</p>{% endif %}
+{% if uncounted %}<p class="mut">{{ uncounted }} product(s) appeared in sales but were never counted. <a href="/stock">Enter their stock</a> to get alerts.</p>{% endif %}
+</div>
+<div class="card"><h2>Best sellers this week</h2>
+{% if top %}<table>{% for name, qty in top %}<tr><td>{{ name }}</td><td>{{ qty|round(1) }}</td></tr>{% endfor %}</table>{% else %}<p class="mut">No sales this week.</p>{% endif %}
+</div>
+</div>
+<div class="card"><h2>Recent deals</h2>
+{% if recent %}<table>{% for c in recent %}<tr><td><a href="/campaigns/{{ c.id }}">{{ c.name }}</a></td><td class="mut">{{ c.created_at.strftime('%d %b') }}</td></tr>{% endfor %}</table>
+{% else %}<p class="mut">No deals sent yet. <a href="/campaigns">Create one</a>.</p>{% endif %}</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Store Manager{% endblock %}</title>
+<style>
+:root { --ink:#1b1f24; --mut:#5b6470; --line:#e3e6ea; --bg:#f7f8fa; --card:#fff; --acc:#0b6bcb; --bad:#c62828; --warn:#b26a00; --ok:#2e7d32; }
+* { box-sizing:border-box; }
+body { margin:0; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); }
+header { background:var(--card); border-bottom:1px solid var(--line); }
+.bar { max-width:1000px; margin:0 auto; padding:10px 16px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.bar b { margin-right:8px; } .bar a { color:var(--mut); text-decoration:none; } .bar a:hover { color:var(--acc); }
+.bar form { margin-left:auto; }
+main { max-width:1000px; margin:0 auto; padding:16px; }
+h1 { font-size:22px; margin:8px 0 14px; } h2 { font-size:17px; margin:0 0 10px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
+.grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+.big { font-size:26px; font-weight:600; } .mut { color:var(--mut); font-size:13px; }
+table { width:100%; border-collapse:collapse; } th,td { text-align:left; padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { font-size:12px; color:var(--mut); font-weight:600; text-transform:uppercase; }
+.tag { padding:2px 8px; border-radius:10px; font-size:12px; background:#eef0f3; white-space:nowrap; }
+.tag.low,.tag.failed { background:#fff4e0; color:var(--warn); } .tag.out-of-stock { background:#fdecea; color:var(--bad); }
+.tag.ok,.tag.sent { background:#e8f5e9; color:var(--ok); }
+input,select,button { font:inherit; padding:7px 9px; border:1px solid var(--line); border-radius:7px; }
+button { background:var(--acc); color:#fff; border-color:var(--acc); cursor:pointer; } button.ghost { background:#fff; color:var(--acc); }
+form.row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; } label { font-size:13px; color:var(--mut); }
+.flash { background:#e7f1fb; border:1px solid #c3dbf3; padding:9px 12px; border-radius:8px; margin-bottom:14px; }
+.bars { display:flex; gap:6px; align-items:flex-end; height:110px; } .bars div { flex:1; text-align:center; font-size:11px; color:var(--mut); }
+.bars span { display:block; background:var(--acc); border-radius:4px 4px 0 0; margin-bottom:4px; min-height:2px; }
+@media (max-width:600px) { .hide-sm { display:none; } }
+</style>
+</head>
+<body>
+{% if request.session.get('owner') %}
+<header><div class="bar">
+  <b>Store Manager</b>
+  <a href="/">Overview</a><a href="/stock">Stock</a><a href="/import">Import</a>
+  <a href="/customers">Customers</a><a href="/campaigns">Deals</a><a href="/settings">Settings</a>
+  <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Log out</button></form>
+</div></header>
+{% endif %}
+<main>
+{% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+{% block body %}{% endblock %}
+</main>
+</body>
+</html>
